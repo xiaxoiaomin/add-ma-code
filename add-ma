@@ -1,0 +1,154 @@
+global total_delay
+
+process_pool = []  # 进程池
+
+total_delay = 0
+
+
+class Machine:
+    def __init__(self, id, area, height, speed, material):
+        self.id = id
+        self.area = area
+        self.height = height
+        self.speed = speed
+        self.current_time = 0
+        self.material = material
+
+    def can_finish_on_time(self, job):
+        production_time = (job.area * job.height) / self.speed
+        finish_time = self.current_time + production_time
+        return finish_time <= job.due_time
+
+    def add_job(self, job):
+        production_time = (job.area * job.height) / self.speed
+        self.current_time += production_time
+        return self.current_time
+
+
+class Job:
+    def __init__(self, id, area, height, due_time, material):
+        self.id = id
+        self.area = area
+        self.height = height
+        self.due_time = due_time
+        self.finish_time = 0
+        self.material = material
+
+    def delay_time(self):
+        return max(0, self.finish_time - self.due_time)
+
+
+jobs = [
+    Job(1, 50, 10, 10, 1),
+    Job(2, 60, 10, 12, 2),
+    Job(3, 70, 10, 14, 3),
+    Job(4, 80, 10, 16, 1),
+    Job(5, 90, 10, 18, 2),
+    Job(6, 100, 10, 20, 3),
+    Job(7, 110, 15, 11, 1),
+    Job(8, 120, 15, 13, 2),
+    Job(9, 50, 15, 15, 3),
+    Job(10, 60, 15, 17, 1),
+    Job(11, 70, 15, 19, 2),
+    Job(12, 80, 15, 10, 3),
+    Job(13, 90, 15, 12, 1),
+    Job(14, 80, 15, 14, 2),
+    Job(15, 90, 15, 16, 3),
+    Job(16, 100, 15, 18, 1),
+    Job(17, 110, 15, 20, 2),
+    Job(18, 120, 20, 11, 3),
+    Job(19, 50, 20, 13, 1),
+    Job(20, 60, 20, 15, 2),
+    Job(21, 70, 20, 17, 3),
+    Job(22, 80, 20, 19, 1),
+    Job(23, 90, 20, 50, 2),
+    Job(24, 100, 10, 100, 3),
+]
+
+
+machines = [Machine(1, 70, 20 , 10, 1),
+            Machine(2, 80, 15 , 11, 2),
+            Machine(3, 90, 10 , 12, 3),
+            Machine(4, 100, 20 , 13, 1),
+            Machine(5, 110, 15 , 14, 2),
+            Machine(6, 120, 10 , 15, 3), ]
+
+
+def find_min_due_time(jobs):
+    min_job = None
+    min_due_time = float('inf')
+
+    for job in jobs:
+        if job.due_time < min_due_time:
+            min_due_time = job.due_time
+            min_job = job
+
+    return min_job
+
+
+
+def add_process(new_process):
+    if len(process_pool) < 12:
+        process_pool.append(new_process)
+        print("新进程已添加到进程池。")
+    else:
+        print("进程池已满，无法添加新进程。")
+
+def remove_process(completed_process):
+    if completed_process in process_pool:
+        process_pool.remove(completed_process)
+        print("进程已离开进程池。")
+    else:
+        print("进程不在进程池中。")
+
+def assign_jobs(sorted_jobs, machines):
+    delay = 0
+    best_machine = None
+    min_delay = float('inf')
+    job = sorted_jobs
+    for machine in machines:
+            if job.material == machine.material:
+                if machine.area >= job.area and machine.height >= job.height:
+                    if machine.can_finish_on_time(job):
+                        best_machine = machine
+                        break
+                    else:
+                        finish_time = machine.current_time + (job.area * job.height) / machine.speed
+                        delay = finish_time - job.due_time
+                        if delay < min_delay:
+                            min_delay = delay
+                            best_machine = machine
+
+    if best_machine is not None:
+        job.finish_time = best_machine.add_job(job)
+        delay = job.delay_time()
+        print(f"Job {job.id} is assigned to Machine {best_machine.id} and finishes at time {job.finish_time:.2f}. Delay: {job.delay_time():.2f}")
+    else:
+        print(f"No suitable machine found for Job {job.id}")
+    return delay
+
+def main():
+    global total_delay
+
+    # 遍历所有的job
+    for job in jobs:
+        # 将进程池装满
+        if len(process_pool) < 12:
+            add_process(job)
+        else:
+            sorted_jobs = find_min_due_time(process_pool)
+            total_delay += assign_jobs(sorted_jobs, machines)
+            print(f"Total delay time: {total_delay:.2f}")
+            remove_process(sorted_jobs)
+            add_process(job)
+    for job in process_pool:
+        # 等待进程池中的进程执行完毕
+        sorted_jobs = find_min_due_time(process_pool)
+        total_delay += assign_jobs(sorted_jobs, machines)
+        print(f"Total delay time: {total_delay:.2f}")
+        remove_process(sorted_jobs)
+
+main()
+
+
+print(f"Total delay time: {total_delay:.2f}")
